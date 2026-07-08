@@ -66,6 +66,17 @@ ledger and reporting which expected migration names are still pending. This is
 intended for health checks, CLI status commands, or deploy tooling that needs an
 answer without applying migrations.
 
+### Migration executables
+
+Migration packages commonly expose the same small executable surface: apply
+migrations, verify expected-schema, print status, scaffold a new migration, and
+regenerate `migrations.lock`. `Codd.Extras.Cli` centralizes that command dispatch
+and output formatting while leaving package policy in a record of callbacks.
+
+The CLI helper does not embed files, choose SQL templates, or decide whether an
+apply path should run with schema verification. Those decisions stay with the
+package that owns the migration set.
+
 ### Migration integrity checks
 
 Migration packages can use `Codd.Extras.Guards` from test suites or lockfile
@@ -170,6 +181,14 @@ binary while still using codd's existing filesystem-based verification path.
 
 The temporary directory label is caller supplied so failure messages and
 debugging output can identify which package's expected schema was materialized.
+
+### Expected-schema writer mains are thin
+
+`Codd.Extras.WriteSchema.writeExpectedSchemaMain` owns the repeated executable
+shape for snapshot writers: parse an optional output directory, create an
+ephemeral PostgreSQL database, apply the package migrations, and ask codd to
+write the expected-schema tree. Packages supply only the database role, schemas,
+default output path, and migration apply action.
 
 ## Non-goals
 

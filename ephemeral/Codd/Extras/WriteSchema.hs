@@ -1,5 +1,6 @@
 module Codd.Extras.WriteSchema
-  ( writeExpectedSchemaToDisk,
+  ( writeExpectedSchemaMain,
+    writeExpectedSchemaToDisk,
   )
 where
 
@@ -12,6 +13,21 @@ import Data.Text (Text)
 import Data.Time (secondsToDiffTime)
 import EphemeralPg qualified as Pg
 import EphemeralPg.Config qualified as PgConfig
+import System.Environment (getArgs)
+
+writeExpectedSchemaMain ::
+  Text ->
+  [Text] ->
+  FilePath ->
+  (CoddSettings -> IO ()) ->
+  IO ()
+writeExpectedSchemaMain pgUser schemas defaultOutputDir apply = do
+  outputDir <- parseOutputDir =<< getArgs
+  writeExpectedSchemaToDisk pgUser schemas outputDir apply
+  where
+    parseOutputDir [] = pure defaultOutputDir
+    parseOutputDir [outputDir] = pure outputDir
+    parseOutputDir _ = fail "usage: write-expected-schema [output-dir]"
 
 writeExpectedSchemaToDisk ::
   Text ->

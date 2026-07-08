@@ -33,11 +33,13 @@ library
   import:          common
   exposed-modules:
     Codd.Extras.Apply
+    Codd.Extras.Cli
     Codd.Extras.Embedded
     Codd.Extras.ExpectedSchema
     Codd.Extras.Guards
     Codd.Extras.Ledger
     Codd.Extras.Lock
+    Codd.Extras.LockFile
     Codd.Extras.New
     Codd.Extras.Settings
     Codd.Extras.Verify

@@ -10,7 +10,9 @@ path:
 - parse embedded `[(FilePath, ByteString)]` migration files
 - scaffold timestamped migration skeleton files
 - apply one or more embedded migration groups through codd
+- build small migration CLIs around `up`, `verify`, `status`, `new`, and `lock`
 - lint migration filenames, bodies, and checksum manifests
+- write `migrations.lock` checksum manifests from a migration directory
 - force the single-try retry policy needed for in-memory migration streams
 - serialize applies with a PostgreSQL advisory lock
 - inspect codd's migration ledger
@@ -24,11 +26,13 @@ path:
 Main library modules:
 
 - `Codd.Extras.Apply`
+- `Codd.Extras.Cli`
 - `Codd.Extras.Embedded`
 - `Codd.Extras.ExpectedSchema`
 - `Codd.Extras.Guards`
 - `Codd.Extras.Ledger`
 - `Codd.Extras.Lock`
+- `Codd.Extras.LockFile`
 - `Codd.Extras.New`
 - `Codd.Extras.Settings`
 - `Codd.Extras.Verify`
@@ -154,6 +158,36 @@ newMigrationFile
 The timestamp prefix uses codd's timestamp rounding, so generated filenames are
 in the same `YYYY-MM-DD-HH-MM-SS-slug.sql` shape that codd parses and orders.
 
+## Migration CLI Helpers
+
+Use `Codd.Extras.Cli` when a migration package wants the standard operational
+commands:
+
+```haskell
+import Codd.Extras.Cli (MigrationCliConfig (..), migrationCliMain)
+import Data.Time (secondsToDiffTime)
+
+main =
+  migrationCliMain
+    MigrationCliConfig
+      { cliProgramName = "myapp-migrate",
+        cliMigrationsDirEnv = "MYAPP_MIGRATIONS_DIR",
+        cliDefaultMigrationsDir = "sql-migrations",
+        cliNewMigrationFile = newMigrationFile,
+        cliRunUp = runUp,
+        cliVerifySchema = verifySchema,
+        cliMigrationStatus = migrationStatus,
+        cliConnectTimeout = secondsToDiffTime 5,
+        cliNoCheckEnv = Nothing,
+        cliEmbedRefreshHint =
+          "Next: touch the module that embeds sql-migrations (or run `cabal clean`)."
+      }
+```
+
+The CLI handles argument dispatch, status rendering, verify exit codes, no-check
+environment parsing, migration scaffolding, and `migrations.lock` generation.
+For packages that need only the lock writer, use `Codd.Extras.LockFile` directly.
+
 ## Expected Schema Helpers
 
 If a package embeds a checked-in `expected-schema/` tree:
@@ -174,11 +208,11 @@ To regenerate an expected-schema snapshot from a fresh ephemeral PostgreSQL
 database, depend on `codd-extras:ephemeral` and use:
 
 ```haskell
-import Codd.Extras.WriteSchema (writeExpectedSchemaToDisk)
+import Codd.Extras.WriteSchema (writeExpectedSchemaMain)
 import Data.Time (secondsToDiffTime)
 
 main =
-  writeExpectedSchemaToDisk "myapp" ["myapp"] "expected-schema" $ \settings ->
+  writeExpectedSchemaMain "myapp" ["myapp"] "expected-schema" $ \settings ->
     runMyAppMigrationsNoCheck settings (secondsToDiffTime 5)
 ```
 

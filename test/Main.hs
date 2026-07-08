@@ -2,6 +2,7 @@ module Main (main) where
 
 import Codd (ApplyResult (SchemasNotVerified))
 import Codd.Extras.Apply (applyEmbeddedMigrationsNoCheck)
+import Codd.Extras.Cli (CheckMode (..), parseCheckModeEnv)
 import Codd.Extras.Guards
   ( LintConfig (..),
     checksumViolations,
@@ -12,6 +13,7 @@ import Codd.Extras.Guards
     sentinelViolations,
   )
 import Codd.Extras.Ledger (MigrationStatus (..), migrationStatus)
+import Codd.Extras.LockFile (readMigrationSourcesFromDir, writeMigrationLock)
 import Codd.Extras.New qualified as New
 import Codd.Extras.Settings (noCheckCoddSettings)
 import Codd.Extras.Settings qualified as Codd.Extras.Settings
@@ -20,11 +22,12 @@ import Codd.Types (libpqConnString)
 import Codd.Types qualified
 import Control.Exception (bracket)
 import Data.ByteString (ByteString)
+import Data.List (isInfixOf)
 import Data.Text (Text)
 import Data.Time (UTCTime (..), fromGregorian, secondsToDiffTime)
 import Database.PostgreSQL.Simple qualified as DB
 import System.Directory (doesFileExist)
-import System.FilePath (takeFileName)
+import System.FilePath (takeFileName, (</>))
 import System.IO.Temp (withSystemTempDirectory)
 import Test.Hspec
 
@@ -68,6 +71,33 @@ main =
           path `shouldSatisfy` (("app-add-widget-index.sql" ==) . dropTimestamp)
           doesFileExist path `shouldReturn` True
           readFile path `shouldReturn` "-- add widget index\n"
+
+    describe "migration lock files" $ do
+      it "reads sorted SQL sources and writes a checksum manifest" $
+        withSystemTempDirectory "codd-extras-lock" $ \dir -> do
+          writeFile (dir </> "2026-01-01-12-00-02-beta.sql") "select 2;\n"
+          writeFile (dir </> "README.md") "ignore me\n"
+          writeFile (dir </> "2026-01-01-12-00-01-alpha.sql") "select 1;\n"
+
+          sources <- readMigrationSourcesFromDir dir
+          map fst sources
+            `shouldBe` [ "2026-01-01-12-00-01-alpha.sql",
+                         "2026-01-01-12-00-02-beta.sql"
+                       ]
+
+          count <- writeMigrationLock dir (dir </> "migrations.lock")
+          count `shouldBe` 2
+          manifest <- readFile (dir </> "migrations.lock")
+          manifest `shouldSatisfy` ("  2026-01-01-12-00-01-alpha.sql\n" `isInfixOf`)
+          manifest `shouldSatisfy` ("  2026-01-01-12-00-02-beta.sql\n" `isInfixOf`)
+
+    describe "migration CLI helpers" $ do
+      it "parses no-check environment values" $ do
+        parseCheckModeEnv "TEST_NO_CHECK" Nothing `shouldReturn` Checked
+        parseCheckModeEnv "TEST_NO_CHECK" (Just "") `shouldReturn` Checked
+        parseCheckModeEnv "TEST_NO_CHECK" (Just "true") `shouldReturn` NoCheck
+        parseCheckModeEnv "TEST_NO_CHECK" (Just "1") `shouldReturn` NoCheck
+        parseCheckModeEnv "TEST_NO_CHECK" (Just "nope") `shouldReturn` Checked
 
     it "applies multiple embedded migration groups once into one shared ledger" $
       withMigratedDatabase applyTestMigrations $ \connStr -> do
