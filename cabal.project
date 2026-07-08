@@ -1,0 +1,17 @@
+packages:
+  .
+  ../ephemeral-pg-project/ephemeral-pg
+
+with-compiler: ghc-9.12.4
+
+tests: True
+
+package codd
+  tests: False
+  benchmarks: False
+
+source-repository-package
+  type: git
+  location: https://github.com/shinzui/codd-project.git
+  tag: d176b3088f23ef2218c7a1f31835e8ee0c0601aa
+  subdir: codd
