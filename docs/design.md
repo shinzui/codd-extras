@@ -140,13 +140,6 @@ binary while still using codd's existing filesystem-based verification path.
 The temporary directory label is caller supplied so failure messages and
 debugging output can identify which package's expected schema was materialized.
 
-### Hackage consumers use upstream dependencies
-
-The project is configured to consume codd from the official
-`mzabani/codd` repository and `ephemeral-pg` from Hackage. Local development
-checkouts are useful while extracting the package, but the published package
-should not depend on local filesystem paths or private corpus repositories.
-
 ## Non-goals
 
 `codd-extras` is not a migration DSL, scaffolder, or schema ownership layer. It
