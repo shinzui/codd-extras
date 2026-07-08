@@ -1,7 +1,8 @@
 {-# LANGUAGE RankNTypes #-}
 
 module Codd.Extras.Apply
-  ( applyEmbeddedMigrations,
+  ( applyParsedMigrations,
+    applyEmbeddedMigrations,
     applyEmbeddedMigrationsNoCheck,
     applyParsedMigrationsNoCheck,
   )
@@ -41,6 +42,20 @@ applyParsedMigrationsNoCheck settings connectTimeout loadMigrations = do
     runCoddLogger $ do
       migrations <- loadMigrations
       applyMigrationsNoCheck settings' (Just migrations) connectTimeout (const (pure SchemasNotVerified))
+
+applyParsedMigrations ::
+  CoddSettings ->
+  DiffTime ->
+  VerifySchemas ->
+  (forall m. (MonadFail m, EnvVars m) => m [AddedSqlMigration m]) ->
+  IO ApplyResult
+applyParsedMigrations settings connectTimeout verifySchemas loadMigrations = do
+  let settings' = forceSingleTryPolicy settings
+  warnRetryPolicyOverride settings
+  withMigrationLock (migsConnString settings') connectTimeout $
+    runCoddLogger $ do
+      migrations <- loadMigrations
+      applyMigrations settings' (Just migrations) connectTimeout verifySchemas
 
 applyEmbeddedMigrations ::
   CoddSettings ->
