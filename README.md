@@ -9,6 +9,7 @@ path:
 
 - parse embedded `[(FilePath, ByteString)]` migration files
 - apply one or more embedded migration groups through codd
+- lint migration filenames, bodies, and checksum manifests
 - force the single-try retry policy needed for in-memory migration streams
 - serialize applies with a PostgreSQL advisory lock
 - inspect codd's migration ledger
@@ -24,6 +25,7 @@ Main library modules:
 - `Codd.Extras.Apply`
 - `Codd.Extras.Embedded`
 - `Codd.Extras.ExpectedSchema`
+- `Codd.Extras.Guards`
 - `Codd.Extras.Ledger`
 - `Codd.Extras.Lock`
 - `Codd.Extras.Settings`
@@ -112,6 +114,23 @@ print (Ledger.statusPending status)
 The ledger helper understands both current `codd.sql_migrations` and older
 `codd_schema.sql_migrations` ledgers.
 
+## Migration Integrity Guards
+
+Use `Codd.Extras.Guards` in test suites or lockfile writers to catch migration
+drift before codd sees a database:
+
+```haskell
+import Codd.Extras.Guards
+
+lintViolations
+  LintConfig { requiredQualifier = "myapp.", exemptFiles = [] }
+  embeddedMigrationFiles
+```
+
+The guard helpers can detect hand-assigned timestamp sentinels, duplicate
+timestamp prefixes, unqualified DDL targets, unsafe `CONCURRENTLY` usage, and
+`migrations.lock` checksum drift.
+
 ## Expected Schema Helpers
 
 If a package embeds a checked-in `expected-schema/` tree:
@@ -151,4 +170,3 @@ cabal test codd-extras:codd-extras-test
 
 The test suite uses `ephemeral-pg`, so PostgreSQL tooling must be available in the
 development environment.
-

@@ -59,6 +59,14 @@ ledger and reporting which expected migration names are still pending. This is
 intended for health checks, CLI status commands, or deploy tooling that needs an
 answer without applying migrations.
 
+### Migration integrity checks
+
+Migration packages can use `Codd.Extras.Guards` from test suites or lockfile
+writer executables to catch mistakes before a database is touched. The helpers
+check timestamp-shaped filenames, duplicate timestamp prefixes, body-level SQL
+heuristics such as schema-qualified DDL targets, and checksum manifests for
+embedded migration files.
+
 ## Design Decisions
 
 ### codd remains the migration engine
@@ -80,6 +88,14 @@ and lets each package decide how files are embedded.
 Callers should still treat migration filenames as globally meaningful within a
 composed migration set. Duplicate or confusing names make ledger inspection and
 operational debugging harder.
+
+### Integrity guards stay heuristic
+
+The migration body linter intentionally uses simple statement-level heuristics
+instead of a PostgreSQL parser. Its job is to catch common authoring mistakes in
+test suites, such as unqualified DDL targets or `CONCURRENTLY` without a codd
+no-transaction marker. codd remains responsible for parsing and applying
+migrations.
 
 ### Parsed migration actions are first-class
 

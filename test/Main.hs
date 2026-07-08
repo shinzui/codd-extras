@@ -2,6 +2,15 @@ module Main (main) where
 
 import Codd (ApplyResult (SchemasNotVerified))
 import Codd.Extras.Apply (applyEmbeddedMigrationsNoCheck)
+import Codd.Extras.Guards
+  ( LintConfig (..),
+    checksumViolations,
+    duplicateTimestampViolations,
+    lintViolations,
+    parseChecksumManifest,
+    renderChecksumManifest,
+    sentinelViolations,
+  )
 import Codd.Extras.Ledger (MigrationStatus (..), migrationStatus)
 import Codd.Extras.Settings (noCheckCoddSettings)
 import Codd.Extras.Settings qualified as Codd.Extras.Settings
@@ -18,6 +27,29 @@ import Test.Hspec
 main :: IO ()
 main =
   hspec $ do
+    describe "migration integrity guards" $ do
+      it "detects hand-assigned and duplicate timestamp prefixes" $ do
+        sentinelViolations ["2026-01-01-00-00-00-alpha.sql"] `shouldSatisfy` (not . null)
+        duplicateTimestampViolations ["2026-01-01-12-00-01-alpha.sql", "2026-01-01-12-00-01-beta.sql"] `shouldSatisfy` (not . null)
+
+      it "lints schema qualification and codd no-txn requirements" $ do
+        let sources =
+              [ ("2026-01-01-12-00-01-good.sql", "CREATE TABLE app.widgets (widget_id int PRIMARY KEY);"),
+                ("2026-01-01-12-00-02-unqualified.sql", "CREATE TABLE widgets (widget_id int PRIMARY KEY);"),
+                ("2026-01-01-12-00-03-concurrent.sql", "CREATE INDEX CONCURRENTLY app_widgets_idx ON app.widgets (widget_id);")
+              ]
+        lintViolations LintConfig {requiredQualifier = "app.", exemptFiles = []} sources
+          `shouldBe` [ "migration DDL target is not qualified with app. in 2026-01-01-12-00-02-unqualified.sql: CREATE TABLE widgets (widget_id int PRIMARY KEY)",
+                       "migration uses CONCURRENTLY without -- codd: no-txn: 2026-01-01-12-00-03-concurrent.sql"
+                     ]
+
+      it "renders and checks migration lock manifests" $ do
+        let sources = [("2026-01-01-12-00-01-alpha.sql", "SELECT 1;")]
+            manifestText = renderChecksumManifest sources
+        parseChecksumManifest manifestText `shouldBe` Right [("2026-01-01-12-00-01-alpha.sql", "17db4fd369edb9244b9f91d9aeed145c3d04ad8ba6e95d06247f07a63527d11a")]
+        checksumViolations [("2026-01-01-12-00-01-alpha.sql", "bad")] sources
+          `shouldBe` ["migrations.lock checksum mismatch for 2026-01-01-12-00-01-alpha.sql"]
+
     it "applies multiple embedded migration groups once into one shared ledger" $
       withMigratedDatabase applyTestMigrations $ \connStr -> do
         assertRegclass connStr "alpha.widgets"

@@ -35,6 +35,7 @@ library
     Codd.Extras.Apply
     Codd.Extras.Embedded
     Codd.Extras.ExpectedSchema
+    Codd.Extras.Guards
     Codd.Extras.Ledger
     Codd.Extras.Lock
     Codd.Extras.Settings
@@ -46,6 +47,7 @@ library
     , base               >=4.18  && <5
     , bytestring         >=0.11  && <0.13
     , codd               >=0.1.8 && <0.2
+    , crypton            >=1.0   && <1.1
     , directory          >=1.3   && <1.4
     , filepath           >=1.4   && <1.6
     , postgresql-simple  >=0.7   && <0.8
