@@ -13,7 +13,9 @@ maintainer:      nadeem@gmail.com
 license:         BSD-3-Clause
 build-type:      Simple
 category:        Database
-extra-doc-files: README.md
+extra-doc-files:
+  docs/design.md
+  README.md
 
 source-repository head
   type:     git
