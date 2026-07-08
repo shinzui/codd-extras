@@ -41,6 +41,16 @@ parsed migration action. The groups are parsed and then applied in one codd run,
 which means codd owns ordering, ledger updates, and skip behavior. This keeps the
 database with one migration ledger instead of one ledger per package.
 
+### Named migration sets
+
+Packages can wrap embedded files in a `MigrationSet` record once and reuse that
+value for parsing, applying, status checks, and composed framework/service
+migration runs. The record contains only a human label and the already-embedded
+files, so it does not introduce a new source of truth.
+
+This keeps package APIs such as `runKirokuMigrations` or `allKeiroMigrations`
+intact while making their implementations uniform.
+
 ### Test databases
 
 The `codd-extras:ephemeral` sublibrary provides helpers for creating a temporary
@@ -106,6 +116,10 @@ and lets each package decide how files are embedded.
 Callers should still treat migration filenames as globally meaningful within a
 composed migration set. Duplicate or confusing names make ledger inspection and
 operational debugging harder.
+
+`MigrationSet` deliberately wraps the same transport format. It is not a
+directory watcher or a Template Haskell abstraction; packages still own their
+`embedDir` splice and recompilation story.
 
 ### Integrity guards stay heuristic
 

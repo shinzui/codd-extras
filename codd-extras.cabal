@@ -40,6 +40,7 @@ library
     Codd.Extras.Ledger
     Codd.Extras.Lock
     Codd.Extras.LockFile
+    Codd.Extras.MigrationSet
     Codd.Extras.New
     Codd.Extras.Settings
     Codd.Extras.Verify

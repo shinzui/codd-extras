@@ -33,6 +33,7 @@ Main library modules:
 - `Codd.Extras.Ledger`
 - `Codd.Extras.Lock`
 - `Codd.Extras.LockFile`
+- `Codd.Extras.MigrationSet`
 - `Codd.Extras.New`
 - `Codd.Extras.Settings`
 - `Codd.Extras.Verify`
@@ -94,6 +95,34 @@ applyAllWithSettings settings =
 
 Both apply helpers take the same advisory lock and force codd's retry policy to a
 single try. That avoids codd retrying an in-memory stream, which it cannot re-read.
+
+## Migration Sets
+
+Use `Codd.Extras.MigrationSet` when a package wants one named value to drive
+parsing, applying, status, and verification:
+
+```haskell
+import Codd.Extras.MigrationSet qualified as MigrationSet
+import Data.FileEmbed (embedDir)
+
+myAppMigrationSet =
+  MigrationSet.MigrationSet
+    { MigrationSet.label = "MyApp",
+      MigrationSet.files = embeddedMigrationFiles
+    }
+
+myAppMigrations =
+  MigrationSet.parseMigrationSet myAppMigrationSet
+
+runMyAppMigrationsNoCheck settings timeout =
+  MigrationSet.applyMigrationSetNoCheck settings timeout myAppMigrationSet
+
+embeddedMigrationFiles = $(embedDir "sql-migrations")
+```
+
+For composed schemas, pass multiple sets to `parseMigrationSets`,
+`applyMigrationSets`, or `applyMigrationSetsNoCheck`. The owning package still
+keeps the Template Haskell splice and controls its public API names.
 
 ## Settings From a Connection String
 

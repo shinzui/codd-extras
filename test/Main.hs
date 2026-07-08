@@ -1,7 +1,6 @@
 module Main (main) where
 
 import Codd (ApplyResult (SchemasNotVerified))
-import Codd.Extras.Apply (applyEmbeddedMigrationsNoCheck)
 import Codd.Extras.Cli (CheckMode (..), parseCheckModeEnv)
 import Codd.Extras.Guards
   ( LintConfig (..),
@@ -14,6 +13,7 @@ import Codd.Extras.Guards
   )
 import Codd.Extras.Ledger (MigrationStatus (..), migrationStatus)
 import Codd.Extras.LockFile (readMigrationSourcesFromDir, writeMigrationLock)
+import Codd.Extras.MigrationSet qualified as MigrationSet
 import Codd.Extras.New qualified as New
 import Codd.Extras.Settings (noCheckCoddSettings)
 import Codd.Extras.Settings qualified as Codd.Extras.Settings
@@ -99,6 +99,15 @@ main =
         parseCheckModeEnv "TEST_NO_CHECK" (Just "1") `shouldReturn` NoCheck
         parseCheckModeEnv "TEST_NO_CHECK" (Just "nope") `shouldReturn` Checked
 
+    describe "migration sets" $ do
+      it "keeps names and codd migration groups derived from embedded files" $ do
+        MigrationSet.migrationNamesForSets testMigrationSets
+          `shouldBe` map fst (alphaMigrations <> betaMigrations)
+        MigrationSet.migrationGroups testMigrationSets
+          `shouldBe` [ ("Alpha", alphaMigrations),
+                       ("Beta", betaMigrations)
+                     ]
+
     it "applies multiple embedded migration groups once into one shared ledger" $
       withMigratedDatabase applyTestMigrations $ \connStr -> do
         assertRegclass connStr "alpha.widgets"
@@ -126,13 +135,17 @@ main =
 applyTestMigrations :: Text -> IO ()
 applyTestMigrations connStr = do
   result <-
-    applyEmbeddedMigrationsNoCheck
+    MigrationSet.applyMigrationSetsNoCheck
       (noCheckCoddSettings ["alpha", "beta"] connStr)
       (secondsToDiffTime 5)
-      [ ("Alpha", alphaMigrations),
-        ("Beta", betaMigrations)
-      ]
+      testMigrationSets
   result `shouldBeSchemasNotVerified` "test migration run"
+
+testMigrationSets :: [MigrationSet.MigrationSet]
+testMigrationSets =
+  [ MigrationSet.MigrationSet {label = "Alpha", files = alphaMigrations},
+    MigrationSet.MigrationSet {label = "Beta", files = betaMigrations}
+  ]
 
 alphaMigrations :: [(FilePath, ByteString)]
 alphaMigrations =
