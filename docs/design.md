@@ -23,6 +23,13 @@ values. Callers can use `file-embed`, another embedding mechanism, or a
 hand-built value in tests. Keeping the public API at this level avoids making
 the runtime library depend on Template Haskell or a specific embedding package.
 
+### Timestamped migration scaffolding
+
+Migration packages can expose a `new` subcommand backed by `Codd.Extras.New`.
+The helper writes a skeleton SQL file with a real UTC timestamp prefix and an
+optional namespace slug. This avoids hand-assigned sentinel names such as
+`00-00-00`, while leaving each package in control of its SQL template.
+
 ### Composed service migrations
 
 Services often need to run migrations from more than one source. For example, a
@@ -96,6 +103,14 @@ instead of a PostgreSQL parser. Its job is to catch common authoring mistakes in
 test suites, such as unqualified DDL targets or `CONCURRENTLY` without a codd
 no-transaction marker. codd remains responsible for parsing and applying
 migrations.
+
+### Scaffolding does not apply migrations
+
+codd's own `add` command timestamps an existing SQL file, applies migrations, and
+writes expected-schema output. `Codd.Extras.New` deliberately stops at source-file
+creation because embedded migration packages need a command that creates the file
+first, lets the author edit and review it, and then relies on the package's normal
+embedded apply path.
 
 ### Parsed migration actions are first-class
 

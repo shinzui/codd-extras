@@ -8,6 +8,7 @@ that embed their own `sql-migrations/` directory and want a consistent codd appl
 path:
 
 - parse embedded `[(FilePath, ByteString)]` migration files
+- scaffold timestamped migration skeleton files
 - apply one or more embedded migration groups through codd
 - lint migration filenames, bodies, and checksum manifests
 - force the single-try retry policy needed for in-memory migration streams
@@ -28,6 +29,7 @@ Main library modules:
 - `Codd.Extras.Guards`
 - `Codd.Extras.Ledger`
 - `Codd.Extras.Lock`
+- `Codd.Extras.New`
 - `Codd.Extras.Settings`
 - `Codd.Extras.Verify`
 
@@ -130,6 +132,27 @@ lintViolations
 The guard helpers can detect hand-assigned timestamp sentinels, duplicate
 timestamp prefixes, unqualified DDL targets, unsafe `CONCURRENTLY` usage, and
 `migrations.lock` checksum drift.
+
+## Migration Scaffolding
+
+Use `Codd.Extras.New` to create timestamped migration skeletons without applying
+them:
+
+```haskell
+import Codd.Extras.New qualified as New
+
+newMigrationFile
+  New.MigrationFileConfig
+    { New.migrationSlugPrefix = Just "myapp",
+      New.migrationTemplate = \description ->
+        "-- " <> description <> "\n\n-- TODO: write migration\n"
+    }
+  "sql-migrations"
+  "add widget index"
+```
+
+The timestamp prefix uses codd's timestamp rounding, so generated filenames are
+in the same `YYYY-MM-DD-HH-MM-SS-slug.sql` shape that codd parses and orders.
 
 ## Expected Schema Helpers
 

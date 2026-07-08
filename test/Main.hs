@@ -12,6 +12,7 @@ import Codd.Extras.Guards
     sentinelViolations,
   )
 import Codd.Extras.Ledger (MigrationStatus (..), migrationStatus)
+import Codd.Extras.New qualified as New
 import Codd.Extras.Settings (noCheckCoddSettings)
 import Codd.Extras.Settings qualified as Codd.Extras.Settings
 import Codd.Extras.TestSupport (withMigratedDatabase)
@@ -20,8 +21,11 @@ import Codd.Types qualified
 import Control.Exception (bracket)
 import Data.ByteString (ByteString)
 import Data.Text (Text)
-import Data.Time (secondsToDiffTime)
+import Data.Time (UTCTime (..), fromGregorian, secondsToDiffTime)
 import Database.PostgreSQL.Simple qualified as DB
+import System.Directory (doesFileExist)
+import System.FilePath (takeFileName)
+import System.IO.Temp (withSystemTempDirectory)
 import Test.Hspec
 
 main :: IO ()
@@ -49,6 +53,21 @@ main =
         parseChecksumManifest manifestText `shouldBe` Right [("2026-01-01-12-00-01-alpha.sql", "17db4fd369edb9244b9f91d9aeed145c3d04ad8ba6e95d06247f07a63527d11a")]
         checksumViolations [("2026-01-01-12-00-01-alpha.sql", "bad")] sources
           `shouldBe` ["migrations.lock checksum mismatch for 2026-01-01-12-00-01-alpha.sql"]
+
+    describe "migration scaffolding" $ do
+      it "builds codd-compatible timestamped file names with optional prefixes" $ do
+        let sampled = UTCTime (fromGregorian 2026 1 1) 43201.6
+        New.migrationFileName prefixedMigrationConfig sampled "Add widget index"
+          `shouldBe` "2026-01-01-12-00-02-app-add-widget-index.sql"
+        New.migrationSlug (Just "app") "app-add widget index" `shouldBe` "app-add-widget-index"
+        New.migrationSlug Nothing "Add widget index" `shouldBe` "add-widget-index"
+
+      it "writes a migration skeleton" $
+        withSystemTempDirectory "codd-extras-new" $ \dir -> do
+          path <- New.newMigrationFile prefixedMigrationConfig dir "add widget index"
+          path `shouldSatisfy` (("app-add-widget-index.sql" ==) . dropTimestamp)
+          doesFileExist path `shouldReturn` True
+          readFile path `shouldReturn` "-- add widget index\n"
 
     it "applies multiple embedded migration groups once into one shared ledger" $
       withMigratedDatabase applyTestMigrations $ \connStr -> do
@@ -140,3 +159,13 @@ insertPartialLedgerRow connStr name =
         \VALUES ('2026-01-01 00:00:03+00', ?, '1 second', 1, NULL, now())"
         (DB.Only name)
     pure ()
+
+prefixedMigrationConfig :: New.MigrationFileConfig
+prefixedMigrationConfig =
+  New.MigrationFileConfig
+    { New.migrationSlugPrefix = Just "app",
+      New.migrationTemplate = \description -> "-- " <> description <> "\n"
+    }
+
+dropTimestamp :: FilePath -> FilePath
+dropTimestamp = drop 20 . takeFileName
