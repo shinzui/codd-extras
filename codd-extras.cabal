@@ -49,6 +49,7 @@ library
 
 library ephemeral
   import:          common
+  visibility:      public
   exposed-modules:
     Codd.Extras.TestSupport
     Codd.Extras.WriteSchema
