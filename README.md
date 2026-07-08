@@ -170,16 +170,16 @@ import Data.Time (secondsToDiffTime)
 main =
   migrationCliMain
     MigrationCliConfig
-      { cliProgramName = "myapp-migrate",
-        cliMigrationsDirEnv = "MYAPP_MIGRATIONS_DIR",
-        cliDefaultMigrationsDir = "sql-migrations",
-        cliNewMigrationFile = newMigrationFile,
-        cliRunUp = runUp,
-        cliVerifySchema = verifySchema,
-        cliMigrationStatus = migrationStatus,
-        cliConnectTimeout = secondsToDiffTime 5,
-        cliNoCheckEnv = Nothing,
-        cliEmbedRefreshHint =
+      { programName = "myapp-migrate",
+        migrationsDirEnv = "MYAPP_MIGRATIONS_DIR",
+        defaultMigrationsDir = "sql-migrations",
+        newMigrationFile = newMigrationFile,
+        runUp = runUp,
+        verifySchema = verifySchema,
+        migrationStatus = migrationStatus,
+        connectTimeout = secondsToDiffTime 5,
+        noCheckEnv = Nothing,
+        embedRefreshHint =
           "Next: touch the module that embeds sql-migrations (or run `cabal clean`)."
       }
 ```

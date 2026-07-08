@@ -26,16 +26,16 @@ data CheckMode
   deriving stock (Eq, Show)
 
 data MigrationCliConfig = MigrationCliConfig
-  { cliProgramName :: String,
-    cliMigrationsDirEnv :: String,
-    cliDefaultMigrationsDir :: FilePath,
-    cliNewMigrationFile :: FilePath -> String -> IO FilePath,
-    cliRunUp :: CheckMode -> CoddSettings -> DiffTime -> IO ApplyResult,
-    cliVerifySchema :: CoddSettings -> DiffTime -> IO VerifyOutcome,
-    cliMigrationStatus :: CoddSettings -> DiffTime -> IO MigrationStatus,
-    cliConnectTimeout :: DiffTime,
-    cliNoCheckEnv :: Maybe String,
-    cliEmbedRefreshHint :: String
+  { programName :: !String,
+    migrationsDirEnv :: !String,
+    defaultMigrationsDir :: !FilePath,
+    newMigrationFile :: !(FilePath -> String -> IO FilePath),
+    runUp :: !(CheckMode -> CoddSettings -> DiffTime -> IO ApplyResult),
+    verifySchema :: !(CoddSettings -> DiffTime -> IO VerifyOutcome),
+    migrationStatus :: !(CoddSettings -> DiffTime -> IO MigrationStatus),
+    connectTimeout :: !DiffTime,
+    noCheckEnv :: !(Maybe String),
+    embedRefreshHint :: !String
   }
 
 migrationCliMain :: MigrationCliConfig -> IO ()
@@ -54,7 +54,7 @@ migrate :: MigrationCliConfig -> IO ()
 migrate config = do
   settings <- getCoddSettings
   checkMode <- resolveCheckMode config
-  result <- cliRunUp config checkMode settings (cliConnectTimeout config)
+  result <- runUp config checkMode settings (connectTimeout config)
   case result of
     SchemasDiffer _ -> do
       hPutStrLn stderr "schema drift detected; see the codd diff above"
@@ -65,12 +65,12 @@ migrate config = do
 generate :: MigrationCliConfig -> String -> IO ()
 generate config description
   | all isSpace description =
-      ioError (userError ("usage: " <> cliProgramName config <> " new <description>"))
+      ioError (userError ("usage: " <> programName config <> " new <description>"))
   | otherwise = do
       dir <- migrationsDir config
-      path <- cliNewMigrationFile config dir description
+      path <- newMigrationFile config dir description
       putStrLn ("Created " <> path)
-      putStrLn (cliEmbedRefreshHint config)
+      putStrLn (embedRefreshHint config)
 
 writeLock :: MigrationCliConfig -> IO ()
 writeLock config = do
@@ -81,12 +81,12 @@ writeLock config = do
 status :: MigrationCliConfig -> IO ()
 status config = do
   settings <- getCoddSettings
-  cliMigrationStatus config settings (cliConnectTimeout config) >>= printMigrationStatus
+  migrationStatus config settings (connectTimeout config) >>= printMigrationStatus
 
 verify :: MigrationCliConfig -> IO ()
 verify config = do
   settings <- getCoddSettings
-  outcome <- cliVerifySchema config settings (cliConnectTimeout config)
+  outcome <- verifySchema config settings (connectTimeout config)
   case outcome of
     VerifySucceeded -> putStrLn "Schema matches expected snapshot."
     VerifyFailed -> exitWith (ExitFailure 1)
@@ -114,7 +114,7 @@ printApplied (name, timestamp) =
 
 resolveCheckMode :: MigrationCliConfig -> IO CheckMode
 resolveCheckMode config =
-  case cliNoCheckEnv config of
+  case noCheckEnv config of
     Nothing -> pure Checked
     Just envName -> parseCheckModeEnv envName =<< lookupEnv envName
 
@@ -131,10 +131,10 @@ parseCheckModeEnv envName (Just raw)
 
 migrationsDir :: MigrationCliConfig -> IO FilePath
 migrationsDir config =
-  fromMaybe (cliDefaultMigrationsDir config) <$> lookupEnv (cliMigrationsDirEnv config)
+  fromMaybe (defaultMigrationsDir config) <$> lookupEnv (migrationsDirEnv config)
 
 usage :: MigrationCliConfig -> [String] -> IO ()
 usage config args = do
-  hPutStrLn stderr ("unknown " <> cliProgramName config <> " arguments: " <> unwords args)
-  hPutStrLn stderr ("usage: " <> cliProgramName config <> " [up | verify | status | new <description> | lock]")
+  hPutStrLn stderr ("unknown " <> programName config <> " arguments: " <> unwords args)
+  hPutStrLn stderr ("usage: " <> programName config <> " [up | verify | status | new <description> | lock]")
   exitWith (ExitFailure 2)
